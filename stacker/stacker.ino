@@ -1,6 +1,13 @@
+/**
+ * Stacker Game 
+ * By Electro707
+ * 
+ * This program uses my Simple LED Matrix Library to create a stacker game (like the one found in malls and arcades)
+ * 
+ */
 #include "simple_matrix.h"  //Import the library
 
-simpleMatrix disp(10, true, 2, true);
+simpleMatrix disp(10, false, 2, true);
 #define BUTTON1 2
 #define BUTTON2 3
 
@@ -8,7 +15,7 @@ uint8_t current_y;
 int8_t current_block_width;
 uint8_t last_y_level;
 bool first_block;
-bool press_bt1;
+unsigned long button_last_press;
 
 struct block_struct{
   uint8_t block_width;
@@ -22,50 +29,67 @@ block_struct current_block;
 uint8_t delay_time;
 
 void setup(){
-  Serial.begin(9600);
   disp.begin();
   disp.setIntensity(0x02);
   disp.clearDisplay();
+  SPI.setClockDivider(SPI_CLOCK_DIV2);
 
   pinMode(BUTTON1, INPUT_PULLUP);
   pinMode(BUTTON2, INPUT_PULLUP);
-  delay(100);
   
-  press_bt1 = 0;
+  button_last_press = 0;
   last_y_level = 0;
   first_block = 1;
 
-//  entry_animation();
+ entry_animation();
   current_y = 0;
   current_block_width = 4;
   init_block(&current_block, current_y, current_block_width);
   delay_time = new_delay_time();
 
   EIFR |= (1 << 0);
-  attachInterrupt(digitalPinToInterrupt(BUTTON1), press_button, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(BUTTON1), press_button, FALLING);
 }
 
 
 void loop(){
+  // Main loop, which just includes the game logic (which is to move the block), and a delay
   delay(delay_time);
+
+  noInterrupts();
   move_block(&current_block);
+  interrupts();
 }
 
 void entry_animation(){
-  for(int i=0;i<2;i++){
-    disp.fillDisplay();
-    _delay_ms(500);
-    disp.clearDisplay();
-    _delay_ms(500);
+  for(int i=0;i<16;i++){
+    disp.setRowPixel(0, 7, i);
+    _delay_ms(50);
   }
+  _delay_ms(1000);
+  disp.clearDisplay();
 }
 
 void game_over(){
-  for(int i=0;i<2;i++){
-    disp.fillDisplay();
-    _delay_ms(500);
-    disp.clearDisplay();
-    _delay_ms(500);
+  _delay_ms(500);
+  for(int i=current_y-1; i>=0;i--){
+    disp.clearRowPixel(0, 7, i);
+    _delay_ms(100);
+  }
+  _delay_ms(1000);
+  disp.clearDisplay();
+  reset_game();
+}
+
+void win_game(){
+  _delay_ms(500);
+  for(int i=0;i<16;i++){
+    disp.setRowPixel(0, 7, i);
+    _delay_ms(50);
+  }
+  for(int i=0;i<16;i++){
+    disp.clearRowPixel(0, 7, i);
+    _delay_ms(50);
   }
   reset_game();
 }
@@ -80,17 +104,21 @@ void reset_game(){
 }
 
 void press_button(){
-  _delay_ms(25);
-  if(digitalRead(BUTTON1) == 0 && press_bt1 == 0){
-    press_bt1 = 1;
-    place_block(&current_block);
+  Serial.println("h1");
+  if((millis() - button_last_press) < 500){
+    return;
   }
-  else if(digitalRead(BUTTON1) == 1){
-    press_bt1 = 0;
-  }
+  button_last_press = millis();
+
+  Serial.println("h2");
+  place_block(&current_block);
   EIFR |= (1 << 0);
 }
 
+/**
+ * 
+ * 
+ */
 void move_block(block_struct *b){
   if(b->move_dir && b->current_x == 0){
       b->move_dir = false;
@@ -115,18 +143,17 @@ void init_block(block_struct *b, int y, int width){
   b->block_width = width;
   b->move_dir = 0;
   b->current_x = 0;
-  for(int i=0;i<b->block_width;i++){
-    disp.setPixel(i, b->y_pos);
-  }
+  disp.setRowPixel(0, b->block_width-1, b->y_pos);
 }
 
 uint8_t new_delay_time(){
-  if(current_y >= 0 && current_y <= 3){
-    return 100;
+  // For the first 6 rows, go easy on the player
+  if(current_y <= 6){
+    return 125;
   }
-  if(current_y > 3 && current_y <= 8){
-    return 75;
-  }
+  // if(current_y > 3 && current_y <= 8){
+  //   return 75;
+  // }
   return (16-current_y)*10;
 }
 
@@ -136,7 +163,6 @@ void place_block(block_struct *curr_b){
     if(first_block == 0){
       if((last_y_level & (1 << i)) == 0){
         current_block_width--;
-        disp.clearPixel(i, curr_b->y_pos);
       }
       else{
         new_y_level |= (1 << i);
@@ -146,14 +172,26 @@ void place_block(block_struct *curr_b){
        new_y_level |= (1 << i);
     }
   }
-  last_y_level = new_y_level;
-  first_block = 0;
-  
 
   if(current_block_width <= 0){
     game_over();
     return;
   }
+  else if(current_y == 15){
+    win_game();
+    return;
+  }
+
+  if(first_block == 0){
+    for(int i=curr_b->current_x; i<=(curr_b->current_x+curr_b->block_width); i++){
+      if((last_y_level & (1 << i)) == 0){
+        disp.clearPixel(i, curr_b->y_pos);
+      }
+    }
+  }
+
+  last_y_level = new_y_level;
+  first_block = 0;
 
   delay_time = new_delay_time();
   current_y++;
