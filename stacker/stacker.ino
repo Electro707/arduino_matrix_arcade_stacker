@@ -7,7 +7,7 @@
  */
 #include "simple_matrix.h"  //Import the library
 
-simpleMatrix disp(10, false, 2, true);
+simpleMatrix disp(10, 2);
 #define BUTTON1 2
 #define BUTTON2 3
 
@@ -31,6 +31,7 @@ uint8_t delay_time;
 void setup(){
   disp.begin();
   disp.setIntensity(0x02);
+  disp.verticalDisplays();
   disp.clearDisplay();
   SPI.setClockDivider(SPI_CLOCK_DIV2);
 
@@ -41,12 +42,13 @@ void setup(){
   last_y_level = 0;
   first_block = 1;
 
- entry_animation();
+  entry_animation();
   current_y = 0;
   current_block_width = 4;
   init_block(&current_block, current_y, current_block_width);
   delay_time = new_delay_time();
 
+  // Attach an interrupt to the buttom
   EIFR |= (1 << 0);
   attachInterrupt(digitalPinToInterrupt(BUTTON1), press_button, FALLING);
 }
@@ -61,6 +63,9 @@ void loop(){
   interrupts();
 }
 
+/**
+ * Function that shows an animation when the Arduino boots
+ */
 void entry_animation(){
   for(int i=0;i<16;i++){
     disp.setRowPixel(0, 7, i);
@@ -70,8 +75,12 @@ void entry_animation(){
   disp.clearDisplay();
 }
 
+/**
+ * Function that creates an animation when the game is over
+ */
 void game_over(){
   _delay_ms(500);
+  // After delay, clear every row sequentially below the one which made you lose
   for(int i=current_y-1; i>=0;i--){
     disp.clearRowPixel(0, 7, i);
     _delay_ms(100);
@@ -81,12 +90,17 @@ void game_over(){
   reset_game();
 }
 
+/**
+ * Function that creates an animation when you win the game (CONGRATS)
+ */
 void win_game(){
   _delay_ms(500);
+  // Sequentially fill LEDs row by row from bottom to top
   for(int i=0;i<16;i++){
     disp.setRowPixel(0, 7, i);
     _delay_ms(50);
   }
+  // Sequentially clear LEDs row by row from bottom to top
   for(int i=0;i<16;i++){
     disp.clearRowPixel(0, 7, i);
     _delay_ms(50);
@@ -94,6 +108,9 @@ void win_game(){
   reset_game();
 }
 
+/**
+ * Function that gets called when the game is reset, so both after winning and losing
+ */
 void reset_game(){
   current_y = 0;
   first_block = 1;
@@ -103,14 +120,15 @@ void reset_game(){
   EIFR |= (1 << 0);
 }
 
+/**
+ * Function that gets called when a buttom is pressed
+ */
 void press_button(){
-  Serial.println("h1");
   if((millis() - button_last_press) < 500){
     return;
   }
   button_last_press = millis();
 
-  Serial.println("h2");
   place_block(&current_block);
   EIFR |= (1 << 0);
 }
