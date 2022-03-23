@@ -7,9 +7,8 @@
  */
 #include "simple_matrix.h"  //Import the library
 
-simpleMatrix disp(10, 2);
-#define BUTTON1 2
-#define BUTTON2 3
+simpleMatrix disp(4, 2);    // Pin 4 for the CS pin, with 2 8x8 matrix
+#define BUTTON1 2           // This should not change, due to its use with an interrupt (INT0)
 
 uint8_t current_y;
 int8_t current_block_width;
@@ -22,21 +21,20 @@ struct block_struct{
   uint8_t current_x;
   uint8_t y_pos;
   bool move_dir;
-};
-
-block_struct current_block;
+} current_block;
 
 uint8_t delay_time;
 
 void setup(){
+  // Initialize the display
   disp.begin();
   disp.setIntensity(0x02);
   disp.verticalDisplays();
   disp.clearDisplay();
+  // Set the highest SPI clock rate
   SPI.setClockDivider(SPI_CLOCK_DIV2);
 
   pinMode(BUTTON1, INPUT_PULLUP);
-  pinMode(BUTTON2, INPUT_PULLUP);
   
   button_last_press = 0;
   last_y_level = 0;
@@ -124,7 +122,8 @@ void reset_game(){
  * Function that gets called when a buttom is pressed
  */
 void press_button(){
-  if((millis() - button_last_press) < 500){
+  // TODO: Figure out better debouncing technique and timing
+  if((millis() - button_last_press) < 100){
     return;
   }
   button_last_press = millis();
@@ -134,8 +133,7 @@ void press_button(){
 }
 
 /**
- * 
- * 
+ * Function that moves a row's block left and right
  */
 void move_block(block_struct *b){
   if(b->move_dir && b->current_x == 0){
@@ -156,6 +154,9 @@ void move_block(block_struct *b){
   }
 }
 
+/**
+ * Function that initializes a block on a given height with a given width
+ */
 void init_block(block_struct *b, int y, int width){
   b->y_pos = y;
   b->block_width = width;
@@ -164,6 +165,9 @@ void init_block(block_struct *b, int y, int width){
   disp.setRowPixel(0, b->block_width-1, b->y_pos);
 }
 
+/**
+ * Function that gets the time delay based off the current row
+ */
 uint8_t new_delay_time(){
   // For the first 6 rows, go easy on the player
   if(current_y <= 6){
