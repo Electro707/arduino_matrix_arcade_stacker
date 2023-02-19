@@ -66,7 +66,7 @@ void loop(){
  */
 void entry_animation(){
   for(int i=0;i<16;i++){
-    disp.setRowPixel(0, 7, i);
+    disp.setRowPixels(0, 7, i);
     _delay_ms(50);
   }
   _delay_ms(1000);
@@ -80,7 +80,7 @@ void game_over(){
   _delay_ms(500);
   // After delay, clear every row sequentially below the one which made you lose
   for(int i=current_y-1; i>=0;i--){
-    disp.clearRowPixel(0, 7, i);
+    disp.clearRowPixels(0, 7, i);
     _delay_ms(100);
   }
   _delay_ms(1000);
@@ -95,12 +95,12 @@ void win_game(){
   _delay_ms(500);
   // Sequentially fill LEDs row by row from bottom to top
   for(int i=0;i<16;i++){
-    disp.setRowPixel(0, 7, i);
+    disp.setRowPixels(0, 7, i);
     _delay_ms(50);
   }
   // Sequentially clear LEDs row by row from bottom to top
   for(int i=0;i<16;i++){
-    disp.clearRowPixel(0, 7, i);
+    disp.clearRowPixels(0, 7, i);
     _delay_ms(50);
   }
   reset_game();
@@ -162,7 +162,7 @@ void init_block(block_struct *b, int y, int width){
   b->block_width = width;
   b->move_dir = 0;
   b->current_x = 0;
-  disp.setRowPixel(0, b->block_width-1, b->y_pos);
+  disp.setRowPixels(0, b->block_width-1, b->y_pos);
 }
 
 /**
